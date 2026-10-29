@@ -558,6 +558,13 @@ export default function StreamBlackjackPage() {
       </header>
 
       <main className="mx-auto max-w-5xl px-4 pt-6">
+        <aside className="mb-4 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl border border-[#1DB954]/20 bg-[#1DB954]/[0.06] px-4 py-3 text-xs text-neutral-300 sm:text-sm">
+          <span className="font-extrabold uppercase tracking-wider text-[#1ed760]">The challenge</span>
+          <span>Hit tracks to build your total, then stand before you bust.</span>
+          <span className="hidden text-neutral-500 sm:inline">Your shield saves one risky pick.</span>
+          <span className="font-bold text-white">Can you land within 2% of the cap?</span>
+        </aside>
+
         {/* HUD METER / STREAM CONSOLE */}
         <section
           className={`relative mb-6 overflow-hidden rounded-2xl border p-5 transition-all duration-300 ${
