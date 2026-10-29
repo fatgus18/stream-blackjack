@@ -93,6 +93,7 @@ export default function StreamBlackjackPage() {
 
   // Animated odometer display value
   const [displaySum, setDisplaySum] = useState(0);
+  const displaySumRef = useRef(0);
 
   // Audio preview player
   const [playingTrackId, setPlayingTrackId] = useState<string | null>(null);
@@ -113,7 +114,7 @@ export default function StreamBlackjackPage() {
   // Smooth odometer animation whenever currentSum changes
   useEffect(() => {
     let frame: number;
-    const start = displaySum;
+    const start = displaySumRef.current;
     const diff = currentSum - start;
     if (diff === 0) return;
     const duration = 450;
@@ -122,7 +123,9 @@ export default function StreamBlackjackPage() {
     const step = (now: number) => {
       const elapsed = Math.min((now - startTime) / duration, 1);
       const eased = 1 - Math.pow(1 - elapsed, 3);
-      setDisplaySum(Math.round(start + diff * eased));
+      const nextDisplaySum = Math.round(start + diff * eased);
+      displaySumRef.current = nextDisplaySum;
+      setDisplaySum(nextDisplaySum);
       if (elapsed < 1) {
         frame = requestAnimationFrame(step);
       }
@@ -131,40 +134,17 @@ export default function StreamBlackjackPage() {
     return () => cancelAnimationFrame(frame);
   }, [currentSum]);
 
-  // Countdown timer to local midnight + automatic new-day detection
-  useEffect(() => {
-    const timer = setInterval(() => {
-      const now = new Date();
-      const tomorrow = new Date(
-        now.getFullYear(),
-        now.getMonth(),
-        now.getDate() + 1
-      );
-      const diff = Math.max(0, tomorrow.getTime() - now.getTime());
-      const hrs = String(Math.floor(diff / 3600000)).padStart(2, "0");
-      const mins = String(Math.floor((diff % 3600000) / 60000)).padStart(2, "0");
-      const secs = String(Math.floor((diff % 60000) / 1000)).padStart(2, "0");
-      setCountdown(`${hrs}:${mins}:${secs}`);
-
-      // Auto-refresh if midnight rolled over during Daily Mode
-      const today = getLocalDateStr();
-      if (board && !practiceSeed && board.date !== today) {
-        loadBoard(today, null);
-      }
-    }, 1000);
-    return () => clearInterval(timer);
-  }, [board, practiceSeed]);
-
   // Load saved stats from localStorage
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem("sbj_stats_v2");
-      if (raw) {
-        setStats({ ...DEFAULT_STATS, ...JSON.parse(raw) });
+    const frame = requestAnimationFrame(() => {
+      try {
+        const raw = localStorage.getItem("sbj_stats_v2");
+        if (raw) setStats({ ...DEFAULT_STATS, ...JSON.parse(raw) });
+      } catch {
+        // Ignore storage errors
       }
-    } catch {
-      // Ignore storage errors
-    }
+    });
+    return () => cancelAnimationFrame(frame);
   }, []);
 
   const stopAudio = useCallback(() => {
@@ -266,6 +246,7 @@ export default function StreamBlackjackPage() {
               (acc, id) => acc + (saved.revealedStreams?.[id] || 0),
               0
             );
+            displaySumRef.current = restoredSum;
             setDisplaySum(restoredSum);
             setLoading(false);
             return;
@@ -279,6 +260,7 @@ export default function StreamBlackjackPage() {
         setShieldAvailable(true);
         setGameOver(false);
         setFinishData(null);
+        displaySumRef.current = 0;
         setDisplaySum(0);
       } finally {
         setLoading(false);
@@ -287,8 +269,34 @@ export default function StreamBlackjackPage() {
     [stopAudio]
   );
 
+  // Countdown timer to local midnight + automatic new-day detection
   useEffect(() => {
-    loadBoard(getLocalDateStr(), null);
+    const timer = setInterval(() => {
+      const now = new Date();
+      const tomorrow = new Date(
+        now.getFullYear(),
+        now.getMonth(),
+        now.getDate() + 1
+      );
+      const diff = Math.max(0, tomorrow.getTime() - now.getTime());
+      const hrs = String(Math.floor(diff / 3600000)).padStart(2, "0");
+      const mins = String(Math.floor((diff % 3600000) / 60000)).padStart(2, "0");
+      const secs = String(Math.floor((diff % 60000) / 1000)).padStart(2, "0");
+      setCountdown(`${hrs}:${mins}:${secs}`);
+
+      const today = getLocalDateStr();
+      if (board?.date && !practiceSeed && board.date !== today) {
+        void loadBoard(today, null);
+      }
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [board?.date, practiceSeed, loadBoard]);
+
+  useEffect(() => {
+    const frame = requestAnimationFrame(() => {
+      void loadBoard(getLocalDateStr(), null);
+    });
+    return () => cancelAnimationFrame(frame);
   }, [loadBoard]);
 
   const finalizeHand = async (
